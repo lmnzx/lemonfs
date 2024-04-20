@@ -32,7 +32,7 @@ func TestStore(t *testing.T) {
 		data := []byte("a lot of data")
 
 		// Write test
-		if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
+		if err := s.Write(key, bytes.NewReader(data)); err != nil {
 			t.Error(err)
 		}
 		fmt.Println("write test passed ✅")
