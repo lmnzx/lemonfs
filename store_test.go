@@ -21,40 +21,63 @@ func TestPathTransformFunc(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
+	s := newStore()
+
+	defer teardown(t, s)
+
+	for i := 0; i < 50; i++ {
+		fmt.Printf("running test %d 🚀\n", i)
+
+		key := fmt.Sprintf("test_%d", i)
+		data := []byte("a lot of data")
+
+		// Write test
+		if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
+			t.Error(err)
+		}
+		fmt.Println("write test passed ✅")
+
+		// Has test 1
+		if ok := s.Has(key); !ok {
+			t.Errorf("expected to have key %s", key)
+		}
+		fmt.Println("has_exists test passed ✅")
+
+		// Read test
+		r, err := s.Read(key)
+		if err != nil {
+			t.Error(err)
+		}
+		fmt.Println("read test passed ✅")
+
+		b, _ := io.ReadAll(r)
+		if string(b) != string(data) {
+			t.Errorf("want %s have %s", data, b)
+		}
+
+		// Delete test
+		if err := s.Delete(key); err != nil {
+			t.Error(err)
+		}
+		fmt.Println("delete test passed ✅")
+
+		// Has test 2
+		if ok := s.Has(key); ok {
+			t.Errorf("expected to NOT have key %s", key)
+		}
+		fmt.Println("has_no_file test passed ✅")
+	}
+}
+
+func newStore() *Store {
 	opts := StoreOpts{
 		PathTransformFunc: CASPathTransformFunc,
 	}
-	s := NewStore(opts)
-	key := "niceFolder"
-	data := []byte("a lot of data")
+	return NewStore(opts)
+}
 
-	// Write test
-	if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
+func teardown(t *testing.T, s *Store) {
+	if err := s.Clear(); err != nil {
 		t.Error(err)
 	}
-	fmt.Println("write test passed ✅")
-
-	// Has test
-	if ok := s.Has(key); !ok {
-		t.Errorf("expected to have key %s", key)
-	}
-	fmt.Println("has test passed ✅")
-
-	// Read test
-	r, err := s.Read(key)
-	if err != nil {
-		t.Error(err)
-	}
-	fmt.Println("read test passed ✅")
-
-	b, _ := io.ReadAll(r)
-	if string(b) != string(data) {
-		t.Errorf("want %s have %s", data, b)
-	}
-
-	// Delete test
-	if err := s.Delete(key); err != nil {
-		t.Error(err)
-	}
-	fmt.Println("delete test passed ✅")
 }
