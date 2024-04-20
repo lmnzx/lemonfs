@@ -21,3 +21,5 @@ vendor/
 go.work
 
 bin/
+# root of the file store
+lemonroot
