@@ -37,6 +37,14 @@ func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	}
 }
 
+func (p *TCPPeer) RemoteAddr() net.Addr {
+	return p.conn.RemoteAddr()
+}
+
+func (p *TCPPeer) Close() error {
+	return p.conn.Close()
+}
+
 func NewTCPTransport(opts TCPTransportOps) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOps: opts,
@@ -59,6 +67,18 @@ func (t *TCPTransport) ListenAndAccept() error {
 	return nil
 }
 
+// Dail implements the Transport interface
+func (t *TCPTransport) Dail(addr string) error {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return err
+	}
+
+	go t.handleConn(conn, true)
+
+	return nil
+}
+
 // Consume implements the Transport interface
 // retrun read-only channel for reading the incoming
 // messages received from other peers in the network
@@ -71,10 +91,6 @@ func (t *TCPTransport) Close() error {
 	return t.listener.Close()
 }
 
-func (p *TCPPeer) Close() error {
-	return p.conn.Close()
-}
-
 func (t *TCPTransport) startAcceptLoop() {
 	for {
 		conn, err := t.listener.Accept()
@@ -85,12 +101,11 @@ func (t *TCPTransport) startAcceptLoop() {
 			fmt.Printf("TCP accept error: %s\n", err)
 		}
 
-		fmt.Printf("New incoming connection %+v\n", conn)
-		go t.handleConn(conn)
+		go t.handleConn(conn, false)
 	}
 }
 
-func (t *TCPTransport) handleConn(conn net.Conn) error {
+func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 	var err error
 
 	defer func() {
@@ -98,7 +113,7 @@ func (t *TCPTransport) handleConn(conn net.Conn) error {
 		conn.Close()
 	}()
 
-	peer := NewTCPPeer(conn, true)
+	peer := NewTCPPeer(conn, outbound)
 
 	if err = t.HandshakeFunc(peer); err != nil {
 		return err

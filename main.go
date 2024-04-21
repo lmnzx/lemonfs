@@ -1,42 +1,39 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"time"
 
 	"github.com/lmnzx/lemonfs/p2p"
 )
 
-func OnPeer(p p2p.Peer) error {
-	fmt.Println("new peer connected")
-	return nil
-}
-
-func main() {
+func makeServer(listenAddr string, nodes ...string) *FileServer {
 	tcpTransportOpts := p2p.TCPTransportOps{
-		ListenAddr:    ":3000",
+		ListenAddr:    listenAddr,
 		HandshakeFunc: p2p.NOPHandshakeFunc,
 		Decoder:       p2p.DefaultDecoder{},
-		OnPeer:        OnPeer,
 	}
 
 	t := p2p.NewTCPTransport(tcpTransportOpts)
 
 	fileServerOpts := FileServerOpts{
-		StorageRoot:       "3000_network",
+		StorageRoot:       listenAddr + "_network",
 		PathTransformFunc: CASPathTransformFunc,
 		Transport:         t,
+		BootstrapNodes:    nodes,
 	}
 
 	s := NewFileServer(fileServerOpts)
 
-	go func() {
-		time.Sleep(time.Second * 10)
-		s.Stop()
-	}()
+	t.OnPeer = s.OnPeer
 
-	if err := s.Start(); err != nil {
-		log.Fatal(err)
-	}
+	return s
+}
+
+func main() {
+	s1 := makeServer(":3000", "")
+	s2 := makeServer(":4000", ":3000")
+
+	go func() { log.Fatal(s1.Start()) }()
+
+	s2.Start()
 }
