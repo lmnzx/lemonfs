@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"log"
+	"time"
 
 	"github.com/lmnzx/lemonfs/p2p"
 )
@@ -35,5 +37,13 @@ func main() {
 
 	go func() { log.Fatal(s1.Start()) }()
 
-	s2.Start()
+	go s2.Start()
+
+	time.Sleep(3 * time.Second)
+
+	data := bytes.NewReader([]byte("big data"))
+
+	s2.StoreData("privatekekw", data)
+
+	select {}
 }
