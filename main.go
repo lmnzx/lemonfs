@@ -43,7 +43,7 @@ func main() {
 
 	data := bytes.NewReader([]byte("big data"))
 
-	s2.StoreData("privatekekw", data)
+	s2.Store("privatekekw", data)
 
 	select {}
 }
