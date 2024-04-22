@@ -30,14 +30,14 @@ type TCPPeer struct {
 	// If we accept and retrieve a conn => outbound == false
 	outbound bool
 
-	Wg *sync.WaitGroup
+	wg *sync.WaitGroup
 }
 
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
 		Conn:     conn,
 		outbound: outbound,
-		Wg:       &sync.WaitGroup{},
+		wg:       &sync.WaitGroup{},
 	}
 }
 
@@ -46,10 +46,14 @@ func (p *TCPPeer) Send(b []byte) error {
 	return err
 }
 
+func (p *TCPPeer) CloseStream() {
+	p.wg.Done()
+}
+
 func NewTCPTransport(opts TCPTransportOps) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOps: opts,
-		rpcch:           make(chan RPC),
+		rpcch:           make(chan RPC, 1024),
 	}
 }
 
@@ -69,7 +73,7 @@ func (t *TCPTransport) ListenAndAccept() error {
 }
 
 func (t *TCPTransport) Addr() string {
-	return t.listener.Addr().String()
+	return t.ListenAddr
 }
 
 // Dail implements the Transport interface
@@ -131,8 +135,9 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 	}
 
 	// Read loop
-	rpc := RPC{}
 	for {
+		rpc := RPC{}
+
 		err := t.Decoder.Decode(conn, &rpc)
 		if err != nil {
 			fmt.Printf("tcp error: %s\n", err)
@@ -141,13 +146,16 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 
 		rpc.From = conn.RemoteAddr()
 
-		peer.Wg.Add(1)
-		fmt.Println("waiting till stream is done")
+		if rpc.Stream {
+
+			peer.wg.Add(1)
+			fmt.Printf("[%s] incoming stream, waiting...\n", conn.RemoteAddr())
+
+			peer.wg.Wait()
+			fmt.Printf("[%s] stream closed, resuming read loop\n", conn.RemoteAddr())
+			continue
+		}
 
 		t.rpcch <- rpc
-
-		peer.Wg.Wait()
-		fmt.Println("stream done continuing normal read loop")
-
 	}
 }
