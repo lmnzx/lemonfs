@@ -39,11 +39,11 @@ func main() {
 
 	go s2.Start()
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	data := bytes.NewReader([]byte("big data"))
 
-	s2.StoreData("privatekekw", data)
+	s2.Store("privatekekw", data)
 
 	select {}
 }
