@@ -1,37 +1,49 @@
 package main
 
 import (
-	"fmt"
+	"bytes"
 	"log"
+	"time"
 
 	"github.com/lmnzx/lemonfs/p2p"
 )
 
-func OnPeer(p p2p.Peer) error {
-	fmt.Println("We Cool")
-	p.Close()
-	return nil
+func makeServer(listenAddr string, nodes ...string) *FileServer {
+	tcpTransportOpts := p2p.TCPTransportOps{
+		ListenAddr:    listenAddr,
+		HandshakeFunc: p2p.NOPHandshakeFunc,
+		Decoder:       p2p.DefaultDecoder{},
+	}
+
+	t := p2p.NewTCPTransport(tcpTransportOpts)
+
+	fileServerOpts := FileServerOpts{
+		StorageRoot:       listenAddr + "_network",
+		PathTransformFunc: CASPathTransformFunc,
+		Transport:         t,
+		BootstrapNodes:    nodes,
+	}
+
+	s := NewFileServer(fileServerOpts)
+
+	t.OnPeer = s.OnPeer
+
+	return s
 }
 
 func main() {
-	tcpOpts := p2p.TCPTransportOps{
-		ListenAddr:    ":3000",
-		Decoder:       p2p.DefaultDecoder{},
-		HandshakeFunc: p2p.NOPHandshakeFunc,
-		OnPeer:        OnPeer,
-	}
-	tr := p2p.NewTCPTransport(tcpOpts)
+	s1 := makeServer(":3000", "")
+	s2 := makeServer(":4000", ":3000")
 
-	go func() {
-		for {
-			msg := <-tr.Consume()
-			fmt.Printf("%+v\n", msg)
-		}
-	}()
+	go func() { log.Fatal(s1.Start()) }()
 
-	if err := tr.ListenAndAccept(); err != nil {
-		log.Fatal(err)
-	}
+	go s2.Start()
+
+	time.Sleep(3 * time.Second)
+
+	data := bytes.NewReader([]byte("big data"))
+
+	s2.StoreData("privatekekw", data)
 
 	select {}
 }
