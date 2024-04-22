@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/lmnzx/lemonfs/p2p"
 )
@@ -42,35 +43,61 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 }
 
 type Message struct {
-	From    string
 	Payload any
 }
 
-type DataMessage struct {
-	Key  string
-	Data []byte
+type MessageStoreFile struct {
+	Key string
 }
 
 // Store the file to the disk and broadcast to the peers
 func (s *FileServer) StoreData(key string, r io.Reader) error {
 	buf := new(bytes.Buffer)
-	tee := io.TeeReader(r, buf)
+	msg := Message{
+		Payload: MessageStoreFile{
+			Key: key,
+		},
+	}
 
-	if err := s.store.Write(key, tee); err != nil {
+	if err := gob.NewEncoder(buf).Encode(msg); err != nil {
 		return err
 	}
 
-	p := &DataMessage{
-		Key:  key,
-		Data: buf.Bytes(),
+	for _, peer := range s.peers {
+		if err := peer.Send(buf.Bytes()); err != nil {
+			return err
+		}
 	}
 
-	fmt.Println(buf.Bytes())
+	time.Sleep(3 * time.Second)
 
-	return s.broadcast(&Message{
-		From:    "todo",
-		Payload: p,
-	})
+	payload := []byte("very very large file")
+
+	for _, peer := range s.peers {
+		if err := peer.Send(payload); err != nil {
+			return err
+		}
+	}
+
+	return nil
+	// buf := new(bytes.Buffer)
+	// tee := io.TeeReader(r, buf)
+	//
+	// if err := s.store.Write(key, tee); err != nil {
+	// 	return err
+	// }
+	//
+	// p := &DataMessage{
+	// 	Key:  key,
+	// 	Data: buf.Bytes(),
+	// }
+	//
+	// fmt.Println(buf.Bytes())
+	//
+	// return s.broadcast(&Message{
+	// 	From:    "todo",
+	// 	Payload: p,
+	// })
 }
 
 func (s *FileServer) broadcast(msg *Message) error {
@@ -106,26 +133,42 @@ func (s *FileServer) loop() {
 
 	for {
 		select {
-		case msg := <-s.Transport.Consume():
-			fmt.Println("recv msg")
-			var m Message
-			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&m); err != nil {
+		case rpc := <-s.Transport.Consume():
+			var msg Message
+			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
 				log.Println(err)
 			}
-			if err := s.handleMessage(&m); err != nil {
+
+			if err := s.handleMessage(rpc.From.String(), &msg); err != nil {
 				log.Println(err)
 			}
+
 		case <-s.quitch:
 			return
 		}
 	}
 }
 
-func (s *FileServer) handleMessage(msg *Message) error {
+func (s *FileServer) handleMessage(form string, msg *Message) error {
 	switch v := msg.Payload.(type) {
-	case *DataMessage:
-		fmt.Printf("received data %+v\n", v)
+	case MessageStoreFile:
+		return s.handleMessageStoreFile(form, v)
 	}
+	return nil
+}
+
+func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) error {
+	peer, ok := s.peers[from]
+	if !ok {
+		return fmt.Errorf("peer (%s) could not be found in the peer list", from)
+	}
+
+	if err := s.store.Write(msg.Key, peer); err != nil {
+		return nil
+	}
+
+	peer.(*p2p.TCPPeer).Wg.Done()
+
 	return nil
 }
 
@@ -135,6 +178,7 @@ func (s *FileServer) bootstrapNetwork() error {
 			continue
 		}
 		go func(addr string) {
+			fmt.Printf("[%s] attemping to connect with remote %s\n", s.Transport.Addr(), addr)
 			if err := s.Transport.Dail(addr); err != nil {
 				log.Println("dial error: ", err)
 			}
@@ -153,4 +197,8 @@ func (s *FileServer) Start() error {
 	s.loop()
 
 	return nil
+}
+
+func init() {
+	gob.Register(MessageStoreFile{})
 }

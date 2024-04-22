@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 )
 
 // Configuration for a TCP transport
@@ -28,12 +29,15 @@ type TCPPeer struct {
 	// If we dial and retrieve a conn => outbound == true
 	// If we accept and retrieve a conn => outbound == false
 	outbound bool
+
+	Wg *sync.WaitGroup
 }
 
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
 		Conn:     conn,
 		outbound: outbound,
+		Wg:       &sync.WaitGroup{},
 	}
 }
 
@@ -59,9 +63,13 @@ func (t *TCPTransport) ListenAndAccept() error {
 
 	go t.startAcceptLoop()
 
-	log.Printf("TCP transport listening on port: %s\n", t.ListenAddr)
+	log.Printf("tcp transport listening on port: %s\n", t.ListenAddr)
 
 	return nil
+}
+
+func (t *TCPTransport) Addr() string {
+	return t.listener.Addr().String()
 }
 
 // Dail implements the Transport interface
@@ -95,7 +103,7 @@ func (t *TCPTransport) startAcceptLoop() {
 			return
 		}
 		if err != nil {
-			fmt.Printf("TCP accept error: %s\n", err)
+			fmt.Printf("tcp accept error: %s\n", err)
 		}
 
 		go t.handleConn(conn, false)
@@ -106,7 +114,7 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 	var err error
 
 	defer func() {
-		fmt.Printf("Dropping peer connection: %s\n", err)
+		fmt.Printf("dropping peer connection: %s\n", err)
 		conn.Close()
 	}()
 
@@ -127,11 +135,19 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) error {
 	for {
 		err := t.Decoder.Decode(conn, &rpc)
 		if err != nil {
-			fmt.Printf("TCP error: %s\n", err)
+			fmt.Printf("tcp error: %s\n", err)
 			return nil
 		}
 
 		rpc.From = conn.RemoteAddr()
+
+		peer.Wg.Add(1)
+		fmt.Println("waiting till stream is done")
+
 		t.rpcch <- rpc
+
+		peer.Wg.Wait()
+		fmt.Println("stream done continuing normal read loop")
+
 	}
 }
