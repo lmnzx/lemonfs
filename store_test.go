@@ -32,7 +32,7 @@ func TestStore(t *testing.T) {
 		data := []byte("a lot of data")
 
 		// Write test
-		if err := s.Write(key, bytes.NewReader(data)); err != nil {
+		if _, err := s.Write(key, bytes.NewReader(data)); err != nil {
 			t.Error(err)
 		}
 		fmt.Println("write test passed ✅")
@@ -44,7 +44,7 @@ func TestStore(t *testing.T) {
 		fmt.Println("has_exists test passed ✅")
 
 		// Read test
-		r, err := s.Read(key)
+		_, r, err := s.Read(key)
 		if err != nil {
 			t.Error(err)
 		}

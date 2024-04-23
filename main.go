@@ -3,7 +3,9 @@ package main
 import (
 	// "bytes"
 	"bytes"
-	"fmt"
+	// "fmt"
+	// "io"
+	// "log"
 	"time"
 
 	"github.com/lmnzx/lemonfs/p2p"
@@ -43,13 +45,12 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	for i := 0; i < 10; i++ {
-		data := bytes.NewReader([]byte("big data"))
-		s2.Store(fmt.Sprintf("privatedata_key_%d", i), data)
-		time.Sleep(1 * time.Millisecond)
-	}
+	data := bytes.NewReader([]byte("big data"))
+	s2.Store("privatedata_ttt", data)
 
-	// r, err := s1.Get("privatekekw")
+	select {}
+
+	// r, err := s1.Get("privatedata")
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
@@ -60,6 +61,4 @@ func main() {
 	// }
 	//
 	// fmt.Println(string(b))
-
-	select {}
 }
