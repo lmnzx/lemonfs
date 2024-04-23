@@ -47,12 +47,15 @@ func main() {
 
 	key := "privatedata_ttt"
 
-	data := bytes.NewReader([]byte("big data"))
+	data := bytes.NewReader([]byte("big data askdjflkasjdfl askdfjlaksjdfklajsdflkajdf"))
 	s1.Store(key, data)
 
 	if err := s1.store.Delete(key); err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("File deleted from s1")
+
+	time.Sleep(10 * time.Second)
 
 	r, err := s1.Get(key)
 	if err != nil {
