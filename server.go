@@ -146,9 +146,10 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 	mw := io.MultiWriter(peers...)
 	mw.Write([]byte{p2p.IncomingStream})
 
-	if err := gob.NewEncoder(mw).Encode(fileBuffer); err != nil {
-		return err
-	}
+	mw.Write(fileBuffer.Bytes())
+	// if err := gob.NewEncoder(mw).Encode(fileBuffer); err != nil {
+	// 	return err
+	// }
 	// FIXME
 
 	fmt.Printf("[%s] received and written bytes to disk\n", s.Transport.Addr())
