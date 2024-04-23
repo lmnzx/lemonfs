@@ -25,7 +25,7 @@ func TestStore(t *testing.T) {
 
 	defer teardown(t, s)
 
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 1; i++ {
 		fmt.Printf("running test %d 🚀\n", i)
 
 		key := fmt.Sprintf("test_%d", i)

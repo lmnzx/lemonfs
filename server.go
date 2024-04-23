@@ -10,12 +10,11 @@ import (
 	"sync"
 	"time"
 
-	// "time"
-
 	"github.com/lmnzx/lemonfs/p2p"
 )
 
 type FileServerOpts struct {
+	EncKey            []byte
 	StorageRoot       string
 	PathTransformFunc PathTransformFunc
 	Transport         p2p.Transport
@@ -85,7 +84,11 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 
 		binary.Read(peer, binary.LittleEndian, &fileSize)
 
-		n, err := s.store.Write(key, io.LimitReader(peer, fileSize))
+		// n, err := s.store.Write(key, io.LimitReader(peer, fileSize))
+		// if err != nil {
+		// 	return nil, err
+		// }
+		n, err := s.store.WriteDecypt(s.EncKey, key, io.LimitReader(peer, fileSize))
 		if err != nil {
 			return nil, err
 		}
@@ -130,15 +133,6 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 
 	time.Sleep(1 * time.Millisecond)
 
-	// for _, peer := range s.peers {
-	// 	peer.Send([]byte{p2p.IncomingStream})
-	// 	n, err := io.Copy(peer, fileBuffer)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	fmt.Printf("recv and written %d bytes to the disk\n", n)
-	// }
 	peers := []io.Writer{}
 	for _, peer := range s.peers {
 		peers = append(peers, peer)
@@ -146,25 +140,15 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 	mw := io.MultiWriter(peers...)
 	mw.Write([]byte{p2p.IncomingStream})
 
-	mw.Write(fileBuffer.Bytes())
-	// if err := gob.NewEncoder(mw).Encode(fileBuffer); err != nil {
-	// 	return err
-	// }
-	// FIXME
+	n, err := copyEncrypt(s.EncKey, fileBuffer, mw)
+	if err != nil {
+		return err
+	}
 
-	fmt.Printf("[%s] received and written bytes to disk\n", s.Transport.Addr())
+	fmt.Printf("[%s] received and written (%d) bytes to disk\n", s.Transport.Addr(), n)
+
 	return nil
 }
-
-// func (s *FileServer) stream(fileBuffer *bytes.Buffer) error {
-// 	peers := []io.Writer{}
-// 	for _, peer := range s.peers {
-// 		peers = append(peers, peer)
-// 	}
-//
-// 	mw := io.MultiWriter(peers...)
-// 	return gob.NewEncoder(mw).Encode(fileBuffer)
-// }
 
 func (s *FileServer) broadcast(msg *Message) error {
 	buf := new(bytes.Buffer)
