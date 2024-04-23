@@ -77,7 +77,7 @@ func (t *TCPTransport) Addr() string {
 }
 
 // Dail implements the Transport interface
-func (t *TCPTransport) Dail(addr string) error {
+func (t *TCPTransport) Dial(addr string) error {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err

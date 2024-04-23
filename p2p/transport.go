@@ -13,7 +13,7 @@ type Peer interface {
 // Can be TCP, UDP, websockets, ...
 type Transport interface {
 	Addr() string
-	Dail(string) error
+	Dial(string) error
 	ListenAndAccept() error
 	Consume() <-chan RPC
 	Close() error
