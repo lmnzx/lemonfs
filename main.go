@@ -37,8 +37,8 @@ func makeServer(listenAddr string, nodes ...string) *FileServer {
 func main() {
 	s1 := makeServer(":3000", "")
 	s2 := makeServer(":4000", ":3000")
-	s3 := makeServer(":8000", ":3000", ":4000")
-	s4 := makeServer(":1337", ":8000", ":3000", ":4000")
+	// s3 := makeServer(":8000", ":3000", ":4000")
+	// s4 := makeServer(":1337", ":8000", ":3000", ":4000")
 
 	go s1.Start()
 	time.Sleep(2 * time.Second)
@@ -46,23 +46,23 @@ func main() {
 	go s2.Start()
 	time.Sleep(2 * time.Second)
 
-	go s3.Start()
-	time.Sleep(2 * time.Second)
+	// go s3.Start()
+	// time.Sleep(2 * time.Second)
+	//
+	// go s4.Start()
+	// time.Sleep(2 * time.Second)
 
-	go s4.Start()
-	time.Sleep(2 * time.Second)
-
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 5; i++ {
 		key := fmt.Sprintf("privatedata_%d.txt", i)
 
 		data := bytes.NewReader([]byte("lemon loves you"))
-		s4.Store(key, data)
+		s1.Store(key, data)
 
-		if err := s4.store.Delete(key); err != nil {
+		if err := s1.store.Delete(s1.ID, key); err != nil {
 			log.Fatal(err)
 		}
 
-		r, err := s4.Get(key)
+		r, err := s1.Get(key)
 		if err != nil {
 			log.Fatal(err)
 		}
